@@ -550,7 +550,7 @@
   </div>
 
   <!-- LOCK SCREEN -->
-  <div id="lock-screen">
+  <div id="lock-screen" class="hidden">
     <div class="lock-card">
       <span class="lock-icon">📓</span>
       <h1>Life Logger</h1>
@@ -671,6 +671,7 @@
     } else if (password) {
       showApp();
     } else {
+      document.getElementById('lock-screen').classList.remove('hidden');
       document.getElementById('password-input').focus();
     }
   })();
@@ -689,6 +690,7 @@
     localStorage.setItem('ll_url', url);
     appsScriptUrl = url;
     document.getElementById('setup-screen').classList.add('hidden');
+    document.getElementById('lock-screen').classList.remove('hidden');
     document.getElementById('password-input').focus();
   }
 
