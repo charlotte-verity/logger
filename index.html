@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Life Logger">
+  <title>Life Logger</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --primary: #5b6ee1;
+      --primary-light: #eef0fd;
+      --upcoming: #e8853a;
+      --upcoming-light: #fef3eb;
+      --happened: #3aab72;
+      --happened-light: #eaf7f1;
+      --bg: #f4f4f6;
+      --card: #ffffff;
+      --text: #111827;
+      --text-sub: #6b7280;
+      --border: #e5e7eb;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    /* ---- Lock screen ---- */
+    #lock-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 32px;
+    }
+
+    #lock-screen.hidden { display: none; }
+
+    /* ---- Setup screen (reuses lock-card styles) ---- */
+    #setup-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 32px;
+    }
+
+    #setup-screen.hidden { display: none; }
+
+    .setup-url-input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      margin-bottom: 12px;
+      transition: border-color 0.15s;
+      word-break: break-all;
+    }
+
+    .setup-url-input:focus { border-color: var(--primary); }
+
+    .lock-card {
+      background: var(--card);
+      border-radius: 24px;
+      padding: 36px 28px;
+      width: 100%;
+      max-width: 340px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+
+    .lock-icon {
+      font-size: 40px;
+      display: block;
+      margin-bottom: 16px;
+    }
+
+    .lock-card h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      margin-bottom: 6px;
+    }
+
+    .lock-card p {
+      font-size: 14px;
+      color: var(--text-sub);
+      margin-bottom: 24px;
+    }
+
+    .lock-input {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      font-family: inherit;
+      font-size: 16px;
+      color: var(--text);
+      outline: none;
+      text-align: center;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+      transition: border-color 0.15s;
+    }
+
+    .lock-input:focus { border-color: var(--primary); }
+    .lock-input.error { border-color: #ef4444; }
+
+    .lock-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: var(--primary);
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.12s, opacity 0.12s;
+    }
+
+    .lock-btn:active { transform: scale(0.98); opacity: 0.88; }
+    .lock-btn:disabled { opacity: 0.45; cursor: default; }
+
+    .lock-error {
+      font-size: 13px;
+      color: #ef4444;
+      margin-top: 10px;
+      min-height: 18px;
+    }
+
+    /* ---- Main app ---- */
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+    }
+
+    .app.hidden { display: none; }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--card);
+      padding-top: calc(14px + var(--safe-top));
+      padding-bottom: 14px;
+      padding-left: 20px;
+      padding-right: 20px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    .header .subtitle {
+      font-size: 13px;
+      color: var(--text-sub);
+      margin-top: 1px;
+    }
+
+    /* ---- Tabs ---- */
+    .tabs {
+      display: flex;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      flex: 1;
+      padding: 11px 0;
+      text-align: center;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--text-sub);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      user-select: none;
+    }
+
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    /* ---- Scrollable content ---- */
+    .content {
+      flex: 1;
+      padding: 18px 16px;
+      padding-bottom: calc(24px + var(--safe-bottom));
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ---- Cards ---- */
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--text-sub);
+      margin-bottom: 12px;
+    }
+
+    /* ---- Category grid ---- */
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .cat-pill {
+      padding: 10px 4px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-sub);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+      user-select: none;
+      line-height: 1.2;
+    }
+
+    .cat-pill .emoji {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 3px;
+    }
+
+    .cat-pill.selected {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    /* ---- Type toggle ---- */
+    .type-toggle {
+      display: flex;
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .type-opt {
+      flex: 1;
+      padding: 9px 6px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--text-sub);
+      transition: all 0.18s;
+      user-select: none;
+    }
+
+    .type-opt.selected {
+      background: var(--card);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    }
+
+    .type-opt.selected[data-value="happened"] { color: var(--happened); }
+    .type-opt.selected[data-value="upcoming"]  { color: var(--upcoming); }
+
+    /* ---- Textarea ---- */
+    textarea {
+      width: 100%;
+      border: none;
+      background: none;
+      font-family: inherit;
+      font-size: 16px;
+      color: var(--text);
+      resize: none;
+      outline: none;
+      min-height: 88px;
+      line-height: 1.5;
+    }
+
+    textarea::placeholder { color: #c0c4cc; }
+
+    /* ---- Submit button ---- */
+    .submit-btn {
+      width: 100%;
+      padding: 15px;
+      border-radius: 14px;
+      border: none;
+      background: var(--primary);
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.12s, opacity 0.12s;
+      margin-top: 4px;
+    }
+
+    .submit-btn:active { transform: scale(0.98); opacity: 0.88; }
+    .submit-btn:disabled { opacity: 0.45; cursor: default; }
+
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: calc(28px + var(--safe-bottom));
+      left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      background: #1f2937;
+      color: white;
+      padding: 11px 22px;
+      border-radius: 50px;
+      font-size: 13.5px;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      z-index: 998;
+      white-space: nowrap;
+      max-width: 90vw;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ---- History ---- */
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .history-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-sub);
+    }
+
+    .refresh-btn {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-sub);
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+
+    .refresh-btn:active { background: var(--border); }
+
+    .date-group { margin-bottom: 22px; }
+
+    .day-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--text-sub);
+      margin-bottom: 8px;
+      padding: 0 2px;
+    }
+
+    .entry-row {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 7px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .type-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+
+    .type-dot.happened { background: var(--happened); }
+    .type-dot.upcoming  { background: var(--upcoming); }
+
+    .entry-body { flex: 1; min-width: 0; }
+
+    .entry-meta {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-bottom: 3px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .entry-cat { font-weight: 600; }
+    .entry-time { opacity: 0.7; }
+
+    .entry-text {
+      font-size: 14px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    /* ---- Summary tab ---- */
+    .summary-intro {
+      text-align: center;
+      padding: 24px 20px;
+    }
+
+    .summary-intro p {
+      font-size: 14px;
+      color: var(--text-sub);
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .generate-btn {
+      width: 100%;
+      padding: 15px;
+      border-radius: 14px;
+      border: none;
+      background: var(--primary);
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.12s, opacity 0.12s;
+    }
+
+    .generate-btn:active { transform: scale(0.98); opacity: 0.88; }
+    .generate-btn:disabled { opacity: 0.45; cursor: default; }
+
+    .summary-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .summary-card-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .summary-card-label.past     { color: var(--happened); }
+    .summary-card-label.upcoming { color: var(--upcoming); }
+
+    .summary-text {
+      font-size: 15px;
+      line-height: 1.65;
+      color: var(--text);
+    }
+
+    /* ---- Empty / loading states ---- */
+    .state-box {
+      text-align: center;
+      padding: 56px 24px;
+      color: var(--text-sub);
+    }
+
+    .state-box .icon {
+      font-size: 36px;
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    .state-box p {
+      font-size: 14.5px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SETUP SCREEN -->
+  <div id="setup-screen" class="hidden">
+    <div class="lock-card">
+      <span class="lock-icon">⚙️</span>
+      <h1>Setup</h1>
+      <p>Paste your Apps Script URL to get started. You only need to do this once.</p>
+      <input
+        class="setup-url-input"
+        type="url"
+        id="url-input"
+        placeholder="https://script.google.com/macros/s/..."
+        autocomplete="off"
+        onkeydown="if(event.key==='Enter') saveUrl()"
+      >
+      <button class="lock-btn" id="setup-btn" onclick="saveUrl()">Save</button>
+      <div class="lock-error" id="setup-error"></div>
+    </div>
+  </div>
+
+  <!-- LOCK SCREEN -->
+  <div id="lock-screen">
+    <div class="lock-card">
+      <span class="lock-icon">📓</span>
+      <h1>Life Logger</h1>
+      <p>Enter your password to continue</p>
+      <input
+        class="lock-input"
+        type="password"
+        id="password-input"
+        placeholder="Password"
+        autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') unlock()"
+      >
+      <button class="lock-btn" id="lock-btn" onclick="unlock()">Unlock</button>
+      <div class="lock-error" id="lock-error"></div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div class="app hidden" id="app">
+
+    <div class="header">
+      <h1>Life Logger</h1>
+      <div class="subtitle" id="header-date"></div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('log', this)">Log</div>
+      <div class="tab" onclick="switchTab('history', this)">History</div>
+      <div class="tab" onclick="switchTab('summary', this)">Summary</div>
+    </div>
+
+    <div class="content">
+
+      <!-- LOG VIEW -->
+      <div class="view active" id="view-log">
+
+        <div class="card">
+          <div class="card-label">Category</div>
+          <div class="category-grid">
+            <div class="cat-pill selected" data-cat="Social" onclick="selectCat(this)">
+              <span class="emoji">🧑‍🤝‍🧑</span>Social
+            </div>
+            <div class="cat-pill" data-cat="Hobbies" onclick="selectCat(this)">
+              <span class="emoji">🎨</span>Hobbies
+            </div>
+            <div class="cat-pill" data-cat="Food & Cooking" onclick="selectCat(this)">
+              <span class="emoji">🍳</span>Food
+            </div>
+            <div class="cat-pill" data-cat="Exercise" onclick="selectCat(this)">
+              <span class="emoji">🏃</span>Exercise
+            </div>
+            <div class="cat-pill" data-cat="Entertainment" onclick="selectCat(this)">
+              <span class="emoji">🎬</span>Entertainment
+            </div>
+            <div class="cat-pill" data-cat="Travel" onclick="selectCat(this)">
+              <span class="emoji">✈️</span>Travel
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Type</div>
+          <div class="type-toggle">
+            <div class="type-opt selected" data-value="happened" onclick="selectType(this)">Happened</div>
+            <div class="type-opt" data-value="upcoming" onclick="selectType(this)">Upcoming</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Note</div>
+          <textarea id="note-input" placeholder="What happened, or what are you looking forward to?"></textarea>
+        </div>
+
+        <button class="submit-btn" id="submit-btn" onclick="submitEntry()">Save Entry</button>
+
+      </div>
+
+      <!-- HISTORY VIEW -->
+      <div class="view" id="view-history">
+        <div class="history-header">
+          <span class="history-title">Recent entries</span>
+          <button class="refresh-btn" onclick="loadHistory()">Refresh</button>
+        </div>
+        <div id="history-content">
+          <div class="state-box">
+            <span class="icon">📖</span>
+            <p>Your logged entries will appear here.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUMMARY VIEW -->
+      <div class="view" id="view-summary">
+        <div class="summary-intro card">
+          <p>Generate an AI summary of your past week and what you have coming up.</p>
+          <button class="generate-btn" id="generate-btn" onclick="generateSummary()">Generate Summary</button>
+        </div>
+        <div id="summary-results"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  // ---- STATE ----
+  let appsScriptUrl = localStorage.getItem('ll_url')      || '';
+  let password      = sessionStorage.getItem('ll_password') || '';
+  let selectedCat   = 'Social';
+  let selectedType  = 'happened';
+
+  // ---- BOOT ----
+  (function boot() {
+    if (!appsScriptUrl) {
+      document.getElementById('setup-screen').classList.remove('hidden');
+      document.getElementById('url-input').focus();
+    } else if (password) {
+      showApp();
+    } else {
+      document.getElementById('password-input').focus();
+    }
+  })();
+
+  // ---- SETUP ----
+  function saveUrl() {
+    const input = document.getElementById('url-input');
+    const err   = document.getElementById('setup-error');
+    const url   = input.value.trim();
+
+    if (!url.startsWith('https://script.google.com/macros/s/')) {
+      err.textContent = 'Please paste a valid Apps Script URL.';
+      return;
+    }
+
+    localStorage.setItem('ll_url', url);
+    appsScriptUrl = url;
+    document.getElementById('setup-screen').classList.add('hidden');
+    document.getElementById('password-input').focus();
+  }
+
+  // ---- LOCK SCREEN ----
+  async function unlock() {
+    const input = document.getElementById('password-input');
+    const btn   = document.getElementById('lock-btn');
+    const err   = document.getElementById('lock-error');
+    const pw    = input.value.trim();
+
+    if (!pw) return;
+
+    input.classList.remove('error');
+    err.textContent = '';
+    btn.disabled    = true;
+    btn.textContent = 'Checking...';
+
+    try {
+      const res  = await fetch(`${appsScriptUrl}?action=verify&password=${encodeURIComponent(pw)}`);
+      const data = await res.json();
+
+      if (data.ok) {
+        password = pw;
+        sessionStorage.setItem('ll_password', pw);
+        showApp();
+      } else {
+        input.classList.add('error');
+        err.textContent = 'Incorrect password. Try again.';
+        input.value = '';
+        input.focus();
+      }
+    } catch {
+      err.textContent = 'Could not connect. Check your internet connection.';
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Unlock';
+    }
+  }
+
+  function showApp() {
+    document.getElementById('lock-screen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+
+    const now = new Date();
+    document.getElementById('header-date').textContent = now.toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric'
+    });
+  }
+
+  // ---- TABS ----
+  function switchTab(tab, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('view-' + tab).classList.add('active');
+    if (tab === 'history') loadHistory();
+  }
+
+  // ---- CATEGORY ----
+  function selectCat(el) {
+    document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedCat = el.dataset.cat;
+  }
+
+  // ---- TYPE ----
+  function selectType(el) {
+    document.querySelectorAll('.type-opt').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedType = el.dataset.value;
+  }
+
+  // ---- SUBMIT ----
+  async function submitEntry() {
+    const note = document.getElementById('note-input').value.trim();
+    if (!note) { showToast('Please write a note first'); return; }
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    const payload = { date: dateStr, category: selectedCat, entry: note, type: selectedType };
+
+    try {
+      await fetch(`${appsScriptUrl}?password=${encodeURIComponent(password)}`, {
+        method:  'POST',
+        mode:    'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body:    JSON.stringify(payload)
+      });
+      document.getElementById('note-input').value = '';
+      showToast('Entry saved!');
+    } catch {
+      showToast('Could not save. Check your connection.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Entry';
+    }
+  }
+
+  // ---- HISTORY ----
+  async function loadHistory() {
+    const container = document.getElementById('history-content');
+    container.innerHTML = '<div class="state-box"><span class="icon">⏳</span><p>Loading entries...</p></div>';
+
+    try {
+      const res  = await fetch(`${appsScriptUrl}?action=history&password=${encodeURIComponent(password)}`);
+      const data = await res.json();
+
+      if (data.error === 'Unauthorized') { handleSessionExpiry(); return; }
+
+      if (!data.entries || data.entries.length === 0) {
+        container.innerHTML = '<div class="state-box"><span class="icon">📝</span><p>No entries yet. Start logging!</p></div>';
+        return;
+      }
+
+      const groups = {};
+      data.entries.forEach(e => {
+        const day = e.date.split(' ')[0];
+        if (!groups[day]) groups[day] = [];
+        groups[day].push(e);
+      });
+
+      const sortedDays = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+      let html = '';
+      sortedDays.forEach(day => {
+        html += `<div class="date-group"><div class="day-label">${formatDay(day)}</div>`;
+        groups[day].forEach(e => {
+          html += `
+            <div class="entry-row">
+              <div class="type-dot ${e.type}"></div>
+              <div class="entry-body">
+                <div class="entry-meta">
+                  <span class="entry-cat">${esc(e.category)}</span>
+                  <span class="entry-time">${formatTime(e.date)}</span>
+                </div>
+                <div class="entry-text">${esc(e.entry)}</div>
+              </div>
+            </div>`;
+        });
+        html += '</div>';
+      });
+
+      container.innerHTML = html;
+    } catch {
+      container.innerHTML = '<div class="state-box"><span class="icon">⚠️</span><p>Could not load entries. Check your connection.</p></div>';
+    }
+  }
+
+  // ---- SUMMARY ----
+  async function generateSummary() {
+    const btn     = document.getElementById('generate-btn');
+    const results = document.getElementById('summary-results');
+
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+    results.innerHTML = '<div class="state-box"><span class="icon">✨</span><p>Claude is writing your summary...</p></div>';
+
+    try {
+      const res  = await fetch(`${appsScriptUrl}?action=summary&password=${encodeURIComponent(password)}`);
+      const data = await res.json();
+
+      if (data.error === 'Unauthorized') { handleSessionExpiry(); return; }
+      if (data.error) throw new Error(data.error);
+
+      results.innerHTML = `
+        <div class="summary-card">
+          <div class="summary-card-label past">This Past Week</div>
+          <div class="summary-text">${esc(data.past)}</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-label upcoming">Coming Up</div>
+          <div class="summary-text">${esc(data.upcoming)}</div>
+        </div>`;
+    } catch {
+      results.innerHTML = '<div class="state-box"><span class="icon">⚠️</span><p>Could not generate summary. Check your connection and try again.</p></div>';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Generate Summary';
+    }
+  }
+
+  // ---- SESSION EXPIRY ----
+  function handleSessionExpiry() {
+    sessionStorage.removeItem('ll_password');
+    password = '';
+    document.getElementById('app').classList.add('hidden');
+    document.getElementById('lock-screen').classList.remove('hidden');
+    document.getElementById('lock-error').textContent = 'Session expired. Please enter your password again.';
+    document.getElementById('password-input').focus();
+  }
+
+  // ---- HELPERS ----
+  function formatDay(dayStr) {
+    const [y, m, d] = dayStr.split('-').map(Number);
+    const date  = new Date(y, m - 1, d);
+    const today = new Date();
+    const yest  = new Date(today); yest.setDate(today.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === yest.toDateString())  return 'Yesterday';
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+
+  function formatTime(dateStr) {
+    const timePart = dateStr.split(' ')[1] || '';
+    const [h, min] = timePart.split(':').map(Number);
+    if (isNaN(h)) return '';
+    const period = h >= 12 ? 'PM' : 'AM';
+    return `${h % 12 || 12}:${String(min).padStart(2, '0')} ${period}`;
+  }
+
+  function esc(str) {
+    const d = document.createElement('div');
+    d.appendChild(document.createTextNode(str));
+    return d.innerHTML;
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2600);
+  }
+</script>
+</body>
+</html>
